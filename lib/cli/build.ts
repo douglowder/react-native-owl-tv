@@ -10,9 +10,11 @@ export const ENTRY_FILE =
 
 export const buildIOS = async (
   config: Config,
-  logger: Logger
+  logger: Logger,
+  args?: CliBuildOptions,
 ): Promise<void> => {
-  const buildCommand = config.ios?.buildCommand
+  const buildCommand = (args?.platform === 'ios') ? (
+    config.ios?.buildCommand
     ? [config.ios?.buildCommand]
     : [
         `xcodebuild`,
@@ -21,9 +23,23 @@ export const buildIOS = async (
         `-configuration ${config.ios?.configuration}`,
         `-sdk iphonesimulator`,
         `-derivedDataPath ios/build`,
-      ];
-
-  if (!config.ios?.buildCommand && config.ios?.quiet) {
+      ]
+  ) : (
+    config.tvos?.buildCommand
+    ? [config.tvos?.buildCommand]
+    : [
+        `xcodebuild`,
+        `-workspace ${config.tvos?.workspace}`,
+        `-scheme ${config.tvos?.scheme}`,
+        `-configuration ${config.tvos?.configuration}`,
+        `-sdk appletvsimulator`,
+        `-derivedDataPath ios/build`,
+      ]
+  );
+  if (args?.platform === 'ios' && (!config.ios?.buildCommand && config.ios?.quiet)) {
+    buildCommand.push('-quiet');
+  }
+  if (args?.platform === 'tvos' && (!config.tvos?.buildCommand && config.tvos?.quiet)) {
     buildCommand.push('-quiet');
   }
 
@@ -39,7 +55,8 @@ export const buildIOS = async (
 
 export const buildAndroid = async (
   config: Config,
-  logger: Logger
+  logger: Logger,
+  args?: CliBuildOptions
 ): Promise<void> => {
   const buildCommand = config.android?.buildCommand
     ? [config.android?.buildCommand]
@@ -77,12 +94,12 @@ export const buildAndroid = async (
 export const buildHandler = async (args: CliBuildOptions) => {
   const config = await getConfig(args.config);
   const logger = new Logger(config.debug);
-  const buildProject = args.platform === 'ios' ? buildIOS : buildAndroid;
+  const buildProject = (args.platform === 'ios' || args.platform === 'tvos') ? buildIOS : buildAndroid;
 
   logger.print(`[OWL - CLI] Building the app on ${args.platform} platform.`);
   logger.info(`[OWL - CLI] Using the config file ${args.config}.`);
 
-  await buildProject(config, logger);
+  await buildProject(config, logger, args);
 
   logger.info(
     `[OWL - CLI] Successfully built for the ${args.platform} platform.`

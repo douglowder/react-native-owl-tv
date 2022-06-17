@@ -10,7 +10,7 @@ const plaformOption: Options = {
   alias: 'p',
   describe: 'Platform to build and run the app',
   demandOption: true,
-  choices: ['ios', 'android'],
+  choices: ['ios', 'tvos', 'android'],
 };
 
 const configOption: Options = {

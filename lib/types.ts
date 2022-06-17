@@ -1,6 +1,6 @@
 import { Arguments } from 'yargs';
 
-export type Platform = 'ios' | 'android';
+export type Platform = 'ios' | 'tvos' | 'android';
 
 export interface CliBuildOptions extends Arguments {
   platform: Platform;
@@ -49,6 +49,7 @@ type ConfigAndroid = {
 
 export type Config = {
   ios?: ConfigIOS;
+  tvos?: ConfigIOS;
   android?: ConfigAndroid;
   /** Generate an HTML report, displaying the baseline, latest & diff images. */
   report?: boolean;

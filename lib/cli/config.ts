@@ -26,6 +26,25 @@ export const validateSchema = (config: {}): Promise<Config> => {
         nullable: true,
         additionalProperties: false,
       },
+      tvos: {
+        type: 'object',
+        properties: {
+          workspace: { type: 'string', nullable: true },
+          configuration: { type: 'string', nullable: true, default: 'Debug' },
+          scheme: { type: 'string', nullable: true },
+          buildCommand: { type: 'string', nullable: true },
+          binaryPath: { type: 'string', nullable: true },
+          device: { type: 'string' },
+          quiet: { type: 'boolean', nullable: true },
+        },
+        required: ['device'],
+        anyOf: [
+          { required: ['workspace', 'scheme'] },
+          { required: ['buildCommand', 'binaryPath'] },
+        ],
+        nullable: true,
+        additionalProperties: false,
+      },
       android: {
         type: 'object',
         properties: {
@@ -44,7 +63,7 @@ export const validateSchema = (config: {}): Promise<Config> => {
       report: { type: 'boolean', nullable: true, default: true },
     },
     required: [],
-    anyOf: [{ required: ['ios'] }, { required: ['android'] }],
+    anyOf: [{ required: ['ios'] }, { required: ['android'] }, { required: ['tvos'] }],
     additionalProperties: false,
   };
 

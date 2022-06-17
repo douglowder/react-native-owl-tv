@@ -53,7 +53,7 @@ export const takeScreenshot = async (filename: string): Promise<string> => {
   await fs.mkdir(cwd, { recursive: true });
 
   const screenshotCommand =
-    platform === 'ios'
+    (platform === 'ios' || platform === 'tvos')
       ? `xcrun simctl io ${iosSimulator} screenshot ${screenshotFilename}`
       : `adb exec-out screencap -p > ${screenshotFilename}`;
 

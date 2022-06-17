@@ -9,18 +9,19 @@ import { getConfig } from './config';
 import { Logger } from '../logger';
 import { waitFor } from '../utils/wait-for';
 
-export const runIOS = async (config: Config, logger: Logger) => {
+export const runIOS = async (config: Config, logger: Logger, args?: CliRunOptions) => {
+  const platformConfig = args?.platform === 'tvos' ? config?.tvos : config?.ios;
   const stdio = config.debug ? 'inherit' : 'ignore';
-  const DEFAULT_BINARY_DIR = `/ios/build/Build/Products/${config.ios?.configuration}-iphonesimulator`;
-  const cwd = config.ios?.binaryPath
-    ? path.dirname(config.ios?.binaryPath)
+  const DEFAULT_BINARY_DIR = `/ios/build/Build/Products/${platformConfig?.configuration}-appletvsimulator`;
+  const cwd = platformConfig?.binaryPath
+    ? path.dirname(platformConfig?.binaryPath)
     : path.join(process.cwd(), DEFAULT_BINARY_DIR);
 
-  const appFilename = config.ios!.binaryPath
-    ? path.basename(config.ios!.binaryPath)
-    : `${config.ios!.scheme}.app`;
+  const appFilename = platformConfig!.binaryPath
+    ? path.basename(platformConfig!.binaryPath)
+    : `${platformConfig!.scheme}.app`;
   const plistPath = path.join(cwd, appFilename, 'Info.plist');
-  const simulator = config.ios!.device.replace(/([ /])/g, '\\$1');
+  const simulator = platformConfig!.device.replace(/([ /])/g, '\\$1');
 
   const { stdout: bundleId } = await execa.command(
     `./PlistBuddy -c 'Print CFBundleIdentifier' ${plistPath}`,
@@ -29,10 +30,11 @@ export const runIOS = async (config: Config, logger: Logger) => {
 
   logger.print(`[OWL - CLI] Found bundle id: ${bundleId}`);
 
-  const SIMULATOR_TIME = '9:41';
-  const setTimeCommand = `xcrun simctl status_bar ${simulator} override --time ${SIMULATOR_TIME}`;
-  await execa.command(setTimeCommand, { stdio, cwd });
-
+  if (args?.platform === 'ios') {
+    const SIMULATOR_TIME = '9:41';
+    const setTimeCommand = `xcrun simctl status_bar ${simulator} override --time ${SIMULATOR_TIME}`;
+    await execa.command(setTimeCommand, { stdio, cwd });
+  }
   const installCommand = `xcrun simctl install ${simulator} ${appFilename}`;
   await execa.command(installCommand, { stdio, cwd });
 
@@ -41,12 +43,14 @@ export const runIOS = async (config: Config, logger: Logger) => {
 
   await waitFor(1000);
 
-  // Workaround to force the virtual home button's color to become consistent
-  const appearanceCommand = `xcrun simctl ui ${simulator} appearance`;
-  await execa.command(`${appearanceCommand} dark`, { stdio, cwd });
-  await waitFor(500);
-  await execa.command(`${appearanceCommand} light`, { stdio, cwd });
-  await waitFor(500);
+  if (args?.platform === 'ios') {
+    // Workaround to force the virtual home button's color to become consistent
+    const appearanceCommand = `xcrun simctl ui ${simulator} appearance`;
+    await execa.command(`${appearanceCommand} dark`, { stdio, cwd });
+    await waitFor(500);
+    await execa.command(`${appearanceCommand} light`, { stdio, cwd });
+    await waitFor(500);
+  }
 };
 
 export const restoreIOSUI = async (config: Config, logger: Logger) => {
@@ -63,7 +67,7 @@ export const restoreIOSUI = async (config: Config, logger: Logger) => {
   logger.print(`[OWL - CLI] Restored status bar time`);
 };
 
-export const runAndroid = async (config: Config, logger: Logger) => {
+export const runAndroid = async (config: Config, logger: Logger, args?: CliRunOptions) => {
   const stdio = config.debug ? 'inherit' : 'ignore';
   const buildType = config.android?.buildType?.toLowerCase();
   const DEFAULT_APK_DIR = `/android/app/build/outputs/apk/${buildType}/`;
@@ -90,7 +94,7 @@ export const runHandler = async (args: CliRunOptions) => {
   const cwd = process.cwd();
   const config = await getConfig(args.config);
   const logger = new Logger(config.debug);
-  const runProject = args.platform === 'ios' ? runIOS : runAndroid;
+  const runProject = (args.platform === 'ios' || args.platform === 'tvos') ? runIOS : runAndroid;
   const restoreSimulatorUI = args.platform === 'ios' && restoreIOSUI;
 
   // Remove old report and screenshots
@@ -107,7 +111,7 @@ export const runHandler = async (args: CliRunOptions) => {
   });
 
   logger.print(`[OWL - CLI] Running tests on ${args.platform}.`);
-  await runProject(config, logger);
+  await runProject(config, logger, args);
 
   const jestConfigPath = path.join(__dirname, '..', 'jest-config.json');
   const jestCommandArgs = [
@@ -148,7 +152,7 @@ export const runHandler = async (args: CliRunOptions) => {
         OWL_PLATFORM: args.platform,
         OWL_DEBUG: String(!!config.debug),
         OWL_UPDATE_BASELINE: String(!!args.update),
-        OWL_IOS_SIMULATOR: config.ios?.device,
+        OWL_IOS_SIMULATOR: (args.platform === 'tvos') ? config.tvos?.device : config.ios?.device,
       },
     });
   } catch (error) {
